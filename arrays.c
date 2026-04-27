@@ -307,10 +307,10 @@ extern void ensure_builtin_globals(void)
 /*  There are four ways to initialise arrays:                                */
 
 #define UNSPECIFIED_AI  -1
-#define NULLS_AI        0
-#define DATA_AI         1
-#define ASCII_AI        2
-#define BRACKET_AI      3
+#define NULLS_AI        0    /* length */
+#define DATA_AI         1    /* val val val... */
+#define ASCII_AI        2    /* "string" */
+#define BRACKET_AI      3    /* [ val val val... ] */
 
 extern void make_global()
 {
@@ -641,15 +641,9 @@ extern void make_array()
     switch(data_type)
     {
         case NULLS_AI:
-            printf("DEBUG: data_type is NULLS_AI\n");
-
-            get_next_token();
-            if ((token_type == SEP_TT) && (token_value == OPEN_SQUARE_SEP))
-            {   put_token_back();
-                data_type = DATA_AI;
-                goto CalculatedArraySize;
-            }
-            put_token_back();
+            
+            /*  In this case we are given the array size, and the array
+                is initialised to null values                                */
 
             AO = parse_expression(CONSTANT_CONTEXT);
 
@@ -680,7 +674,8 @@ extern void make_array()
         case DATA_AI:
 
             /*  In this case the array is initialised to the sequence of
-                constant values supplied on the same line                    */
+                constant values supplied on the same line. A semicolon ends
+                the array. */
 
             i=0;
             do
@@ -772,7 +767,8 @@ advance as part of 'Zcharacter table':", unicode);
 
             /*  In this case the array is initialised to the sequence of
                 constant values given over a whole range of compiler-lines,
-                between square brackets [ and ]                              */
+                between square brackets [ and ]. Semicolons between the values
+                are accepted but optional. */
 
             i = 0;
             while (TRUE)
@@ -791,14 +787,17 @@ advance as part of 'Zcharacter table':", unicode);
                 {
                     char *global_name = (char *)current_array_name.data;
                     ensure_memory_list_available(&embedded_function_name, strlen(global_name)+16);
-                    sprintf(embedded_function_name.data, "%s_R%d", global_name, i);
+                    sprintf(embedded_function_name.data, "%s:%d", global_name, i);
 
+                    INITAOT(&AO, CONSTANT_OT);
                     /* parse_routine() releases lexer text! */
                     AO.value = parse_routine(NULL, TRUE, embedded_function_name.data, FALSE, -1);
-                    AO.type = LONG_CONSTANT_OT;
+                    if (!glulx_mode)
+                        AO.type = LONG_CONSTANT_OT;
                     AO.marker = IROUTINE_MV;
 
                     directives.enabled = FALSE;
+                    directive_keywords.enabled = TRUE;
                     segment_markers.enabled = TRUE;
 
                     statements.enabled = FALSE;

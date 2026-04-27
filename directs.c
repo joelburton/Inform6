@@ -234,6 +234,7 @@ extern int parse_given_directive(int internal_flag)
 
     case DEFAULT_CODE:
         get_next_token();
+        beginning_debug_location = get_token_location_beginning();
         if (token_type != SYMBOL_TT)
             return ebf_error_recover("name");
 
@@ -242,6 +243,7 @@ extern int parse_given_directive(int internal_flag)
         {   i = token_value;
             symbols[i].flags |= DEFCON_SFLAG;
         }
+        constant_name = token_text;
 
         get_next_token();
         if (!((token_type == SEP_TT) && (token_value == SETEQUALS_SEP)))
@@ -256,6 +258,14 @@ extern int parse_given_directive(int internal_flag)
                     symbols[i].flags |= CHANGE_SFLAG;
                 }
                 else assign_symbol(i, AO.value, CONSTANT_T);
+                
+                if (debugfile_switch && !(symbols[i].flags & REDEFINABLE_SFLAG))
+                {   debug_file_printf("<constant>");
+                    debug_file_printf("<identifier>%s</identifier>", constant_name);
+                    write_debug_symbol_optional_backpatch(i);
+                    write_debug_locations(get_token_location_end(beginning_debug_location));
+                    debug_file_printf("</constant>");
+                }
             }
         }
 
@@ -1174,6 +1184,7 @@ extern int parse_given_directive(int internal_flag)
     /* --------------------------------------------------------------------- */
     /*   Zcharacter table <num> ...                                          */
     /*   Zcharacter table + <num> ...                                        */
+    /*   Zcharacter terminating <num> ...                                    */
     /*   Zcharacter <string> <string> <string>                               */
     /*   Zcharacter <char>                                                   */
     /* --------------------------------------------------------------------- */
@@ -1182,6 +1193,11 @@ extern int parse_given_directive(int internal_flag)
 
         if (glulx_mode) {
             error("The Zcharacter directive has no meaning in Glulx.");
+            panic_mode_error_recovery(); return FALSE;
+        }
+
+        if (version_number < 5) {
+            error("The Zcharacter directive requires Z-machine version 5 or later.");
             panic_mode_error_recovery(); return FALSE;
         }
 
